@@ -307,59 +307,56 @@ async function renderPDF(src) {
   const p1 = await pdf.getPage(1);
   const vp1nat = p1.getViewport({ scale: 1 });
 
-  // 表示サイズ（CSSピクセル）— 幅・高さ両方を制約に入れてスマホでも収まるように
+  // ── スクリーンサイズ判定 ──
   const isMobile = window.innerWidth < 640;
-  const vPad   = isMobile ? 170 : 210;   // ヘッダー＋ナビ領域の高さ
-  const maxH   = Math.min(window.innerHeight - vPad, 680);
-  const maxW   = window.innerWidth - (isMobile ? 8 : 24);
-  // A3見開き幅 = A4縦幅 × 2 なので、幅制約は maxW / 2 で1ページ分に換算
+  const vPad = isMobile ? 160 : 210;
+  const maxH = Math.min(window.innerHeight - vPad, 680);
+  const maxW = window.innerWidth - (isMobile ? 8 : 24);
+
+  // ── displayScale 計算 ──
+  // スマホ: A4縦1枚が画面幅に収まるスケール（A3を分割して1枚ずつ表示するため）
+  // PC    : A3横（A4×2）が画面幅に収まるスケール
   const displayScale = Math.min(
     maxH / vp1nat.height,
-    maxW / (vp1nat.width * 2),
+    isMobile ? maxW / vp1nat.width : maxW / (vp1nat.width * 2),
     1.0
   );
 
-  // 高解像度レンダリングスケール（devicePixelRatio × 品質係数）
+  // ── 高解像度レンダリング ──
   const dpr = window.devicePixelRatio || 1;
-  const qualityFactor = Math.min(dpr * 2.5, 3.5);   // 最大3.5x でメモリを抑制
+  const qualityFactor = Math.min(dpr * 2.5, 3.5);
   const renderScale = displayScale * qualityFactor;
 
-  // 1ページあたりの物理ピクセルサイズ（A4縦）
+  // A4縦1枚の物理ピクセルサイズ
   const singleW = Math.round(vp1nat.width  * renderScale);
   const singleH = Math.round(vp1nat.height * renderScale);
 
-  // CSSトランスフォームの縮小率
-  const cssFactor = displayScale / renderScale;  // 例: 1/2.5 = 0.4
-
-  const imgs = [];
-  let rawSlot = 0;   // 1始まりのスロット番号を追跡
-
-  // 【方針】PDFページを1ページ=1ビューで表示
-  //   縦型(A4) → ビューワーの見開き幅中央に配置（背景色で両脇を埋める）
-  //   横型(A3) → 全幅で表示
-  // → ペアリングが不要になり余白ページが発生しない
-
-  // 見開き幅 = A4縦幅 × 2 = A3横幅
-  const spreadW = singleW * 2;
+  // 出力キャンバス幅（スマホ=A4幅、PC=A3幅）
+  const spreadW = isMobile ? singleW : singleW * 2;
   const spreadH = singleH;
 
-  // 縦型ページの背景色（ビューワーのテーマに合わせた濃紺）
+  // CSS transform 縮小率
+  const cssFactor = displayScale / renderScale;
+
+  // 背景色（PC で A4縦ページを A3 幅に配置する際に使用）
   const PORT_BG = '#0d2040';
 
-  // スロット追加（SKIP_SLOTS は除外、PORTRAIT_SLOTS はそのまま中央配置）
+  const imgs = [];
+  let rawSlot = 0;
+
   function pushSlot(dataURL) {
     rawSlot++;
     if (!SKIP_SLOTS.has(rawSlot)) imgs.push(dataURL);
   }
 
-  // 全PDFページを処理
+  // ── 全PDFページを処理 ──
   for (let i = 1; i <= numPages; i++) {
     lMsg.textContent = `ページ ${i} / ${numPages} を処理中...`;
     pbar.style.width = (5 + (i / numPages) * 90) + '%';
 
-    const page  = await pdf.getPage(i);
-    const vpNat = page.getViewport({ scale: 1 });
-    const isPort = vpNat.height > vpNat.width * 1.1;   // 縦長 = A4縦
+    const page   = await pdf.getPage(i);
+    const vpNat  = page.getViewport({ scale: 1 });
+    const isPort = vpNat.height > vpNat.width * 1.1;  // 縦長 = A4縦
 
     const vp = page.getViewport({ scale: renderScale });
     const pageCv = document.createElement('canvas');
@@ -367,30 +364,51 @@ async function renderPDF(src) {
     pageCv.height = Math.round(vp.height);
     await page.render({ canvasContext: pageCv.getContext('2d'), viewport: vp }).promise;
 
-    // 全ページ共通：見開き幅のキャンバスを作成
-    const out = document.createElement('canvas');
-    out.width  = spreadW;
-    out.height = spreadH;
-    const ctx  = out.getContext('2d');
+    if (isMobile) {
+      // ── スマホ: 1ページずつ表示 ──
+      if (isPort) {
+        // A4縦 → そのまま1ビュー（画面幅いっぱい）
+        const out = document.createElement('canvas');
+        out.width = singleW; out.height = singleH;
+        out.getContext('2d').drawImage(pageCv, 0, 0, singleW, singleH);
+        pushSlot(out.toDataURL('image/jpeg', 0.95));
+      } else {
+        // A3横 → 左右に分割して2ビュー（各A4縦サイズ）
+        const half = Math.round(pageCv.width / 2);
 
-    if (isPort) {
-      // A4縦 → 背景を塗り、中央に配置
-      ctx.fillStyle = PORT_BG;
-      ctx.fillRect(0, 0, spreadW, spreadH);
-      const xOff = Math.round((spreadW - singleW) / 2);
-      ctx.drawImage(pageCv, xOff, 0, singleW, spreadH);
+        const lc = document.createElement('canvas');
+        lc.width = singleW; lc.height = singleH;
+        lc.getContext('2d').drawImage(pageCv, 0, 0, half, pageCv.height, 0, 0, singleW, singleH);
+        pushSlot(lc.toDataURL('image/jpeg', 0.95));
+
+        const rc = document.createElement('canvas');
+        rc.width = singleW; rc.height = singleH;
+        rc.getContext('2d').drawImage(pageCv, half, 0, pageCv.width - half, pageCv.height, 0, 0, singleW, singleH);
+        pushSlot(rc.toDataURL('image/jpeg', 0.95));
+      }
     } else {
-      // A3横 → 全幅に描画
-      ctx.drawImage(pageCv, 0, 0, spreadW, spreadH);
-    }
+      // ── PC: 1PDFページ = 1ビュー（A3全幅）──
+      const out = document.createElement('canvas');
+      out.width = spreadW; out.height = spreadH;
+      const ctx = out.getContext('2d');
 
-    pushSlot(out.toDataURL('image/jpeg', 0.95));
+      if (isPort) {
+        // A4縦 → A3幅の中央に配置（両脇に濃紺背景）
+        ctx.fillStyle = PORT_BG;
+        ctx.fillRect(0, 0, spreadW, spreadH);
+        ctx.drawImage(pageCv, Math.round((spreadW - singleW) / 2), 0, singleW, spreadH);
+      } else {
+        // A3横 → 全幅に描画
+        ctx.drawImage(pageCv, 0, 0, spreadW, spreadH);
+      }
+      pushSlot(out.toDataURL('image/jpeg', 0.95));
+    }
   }
 
   pbar.style.width = '100%';
 
   totalImgs  = imgs.length;
-  totalViews = totalImgs;   // 1PDFページ = 1ビュー
+  totalViews = totalImgs;
 
   return { imgs, spreadW, spreadH, cssFactor };
 }
