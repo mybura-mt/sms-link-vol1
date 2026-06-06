@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>社内報 LINK Vol.1 JUNE | SMS GROUP</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg1: #06101e;
+  --bg2: #0d2040;
+  --accent: #4d9fec;
+  --text: #dde6f4;
+  --muted: rgba(221,230,244,0.38);
+}
+
+body {
+  background: linear-gradient(150deg, var(--bg1) 0%, var(--bg2) 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, 'Hiragino Kaku Gothic Pro', 'Noto Sans JP', sans-serif;
+  color: var(--text);
+  padding: 16px 12px;
+  gap: 14px;
+  user-select: none;
+}
+
+/* ── Header ── */
+.hdr { text-align: center; }
+.hdr-title {
+  font-size: clamp(15px, 2.2vw, 20px);
+  font-weight: 700;
+  letter-spacing: 5px;
+  color: #cdd8f4;
+}
+.hdr-sub {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* ── Loading ── */
+#loading { text-align: center; }
+.l-msg { font-size: 13px; color: var(--muted); }
+.progress-track {
+  width: 240px; height: 2px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 1px;
+  margin: 14px auto;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #7dd3fc);
+  border-radius: 1px;
+  width: 0%;
+  transition: width 0.35s ease;
+}
+
+/* ── Error / Manual load ── */
+#err-box { display: none; text-align: center; max-width: 360px; }
+.err-msg { font-size: 13px; color: #f38ba8; margin-bottom: 14px; }
+.file-label {
+  display: inline-block;
+  padding: 10px 24px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 100px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: opacity .2s;
+}
+.file-label:hover { opacity: .85; }
+#file-in { display: none; }
+
+/* ── Viewer ── */
+#viewer { display: none; flex-direction: column; align-items: center; gap: 14px; }
+
+#book-wrap {
+  filter: drop-shadow(0 20px 50px rgba(0,0,0,.75))
+          drop-shadow(0 4px 10px rgba(0,0,0,.5));
+}
+#flipbook canvas { display: block; }
+
+/* ── Controls ── */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 18px;
+  background: rgba(255,255,255,.07);
+  color: rgba(255,255,255,.82);
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 100px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  letter-spacing: .5px;
+  transition: background .18s, border-color .18s, opacity .18s;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) {
+  background: rgba(255,255,255,.14);
+  border-color: rgba(255,255,255,.28);
+}
+.btn:disabled { opacity: .22; cursor: default; }
+.counter {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 64px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Dot navigation ── */
+#dots { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.dot {
+  width: 28px; height: 28px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 50%;
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.5);
+  font-size: 10px;
+  cursor: pointer;
+  transition: background .18s, border-color .18s, color .18s;
+  font-family: inherit;
+  display: flex; align-items: center; justify-content: center;
+}
+.dot:hover { background: rgba(255,255,255,.14); color: rgba(255,255,255,.85); }
+.dot.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.hint { font-size: 10px; color: rgba(255,255,255,.18); letter-spacing: .5px; text-align: center; }
+
+/* ── Page type badge ── */
+#page-badge {
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  border: 1px solid rgba(255,255,255,.15);
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <p class="hdr-title">社内報 LINK &thinsp; Vol.1 &thinsp; JUNE</p>
+  <p class="hdr-sub">SMS GROUP &mdash; グループみんなで、未来を面白くしていこう</p>
+</div>
+
+<!-- Loading -->
+<div id="loading">
+  <p class="l-msg" id="l-msg">社内報を読み込んでいます...</p>
+  <div class="progress-track"><div class="progress-fill" id="pbar"></div></div>
+  <p style="font-size:11px;color:rgba(255,255,255,.22);margin-top:4px" id="l-sub"></p>
+</div>
+
+<!-- Error / Manual -->
+<div id="err-box">
+  <p class="err-msg" id="err-msg">PDFの自動読み込みに失敗しました。ファイルを選択してください。</p>
+  <label class="file-label">
+    PDFファイルを選択
+    <input type="file" id="file-in" accept="application/pdf">
+  </label>
+</div>
+
+<!-- Viewer -->
+<div id="viewer">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span id="page-badge">表紙</span>
+    <span class="counter" id="counter">1 / 6</span>
+  </div>
+
+  <div id="book-wrap">
+    <div id="flipbook"></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="btn-first">|◀ 表紙</button>
+    <button class="btn" id="btn-prev">◀ 前へ</button>
+    <div id="dots"></div>
+    <button class="btn" id="btn-next">次へ ▶</button>
+    <button class="btn" id="btn-last">最後 ▶|</button>
+  </div>
+
+  <p class="hint">← → キー または ページ端のドラッグでもめくれます</p>
+</div>
+
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- StPageFlip -->
+<script src="https://unpkg.com/page-flip/dist/js/page-flip.browser.js"></script>
+
+<script>
+'use strict';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const PDF_NAME = 'shakanai-link-vol1.pdf';
+
+// ─────────────────────────────────────────────────────────────
+// ページレイアウト設定（1始まりのスロット番号で指定）
+//   PORTRAIT_SLOTS : A4縦として扱うスロット（中身はそのまま A4 サイズ）
+//   SKIP_SLOTS     : 白紙に差し替えて削除するスロット
+// ─────────────────────────────────────────────────────────────
+const PORTRAIT_SLOTS = new Set([11]);   // 11P → A4縦
+const SKIP_SLOTS     = new Set([12]);   // 12P → 削除（白紙で代替し見開きを維持）
+
+const $ = id => document.getElementById(id);
+const pbar = $('pbar');
+const lMsg = $('l-msg');
+
+let pf;
+let totalImgs;   // 全スロット数（StPageFlip に渡す画像数）
+let totalViews;  // ユーザーが見る「ページ（見開き・単ページ）」数
+
+
+/* ═══════════════════════════════════════
+   PDF を読み込んで画像配列を作成する
+   ─────────────────────────────────────
+   【解像度戦略】
+   ・renderScale = 高解像度でPDFを描画（3x 前後）
+   ・displayScale = 画面に収まるCSSサイズ
+   ・cssFactor = renderScale → displayScale への縮小率
+   CSS transform scale(cssFactor) で大きなCanvasを
+   縮小表示することで文字のシャープさを確保する
+═══════════════════════════════════════ */
+async function renderPDF(src) {
+  const loadArg = src instanceof ArrayBuffer ? { data: src } : src;
+  const pdf = await pdfjsLib.getDocument(loadArg).promise;
+  const numPages = pdf.numPages;
+
+  const p1 = await pdf.getPage(1);
+  const vp1nat = p1.getViewport({ scale: 1 });
+
+  // 表示サイズ（CSSピクセル）
+  const maxH = Math.min(window.innerHeight - 210, 680);
+  const displayScale = Math.min(maxH / vp1nat.height, 1.0);
+
+  // 高解像度レンダリングスケール（devicePixelRatio × 品質係数）
+  const dpr = window.devicePixelRatio || 1;
+  const qualityFactor = Math.min(dpr * 2.5, 3.5);   // 最大3.5x でメモリを抑制
+  const renderScale = displayScale * qualityFactor;
+
+  // 1ページあたりの物理ピクセルサイズ（A4縦）
+  const singleW = Math.round(vp1nat.width  * renderScale);
+  const singleH = Math.round(vp1nat.height * renderScale);
+
+  // CSSトランスフォームの縮小率
+  const cssFactor = displayScale / renderScale;  // 例: 1/2.5 = 0.4
+
+  const imgs = [];
+  let rawSlot = 0;   // 1始まりのスロット番号を追跡
+
+  // 【方針】PDFページを1ページ=1ビューで表示
+  //   縦型(A4) → ビューワーの見開き幅中央に配置（背景色で両脇を埋める）
+  //   横型(A3) → 全幅で表示
+  // → ペアリングが不要になり余白ページが発生しない
+
+  // 見開き幅 = A4縦幅 × 2 = A3横幅
+  const spreadW = singleW * 2;
+  const spreadH = singleH;
+
+  // 縦型ページの背景色（ビューワーのテーマに合わせた濃紺）
+  const PORT_BG = '#0d2040';
+
+  // スロット追加（SKIP_SLOTS は除外、PORTRAIT_SLOTS はそのまま中央配置）
+  function pushSlot(dataURL) {
+    rawSlot++;
+    if (!SKIP_SLOTS.has(rawSlot)) imgs.push(dataURL);
+  }
+
+  // 全PDFページを処理
+  for (let i = 1; i <= numPages; i++) {
+    lMsg.textContent = `ページ ${i} / ${numPages} を処理中...`;
+    pbar.style.width = (5 + (i / numPages) * 90) + '%';
+
+    const page  = await pdf.getPage(i);
+    const vpNat = page.getViewport({ scale: 1 });
+    const isPort = vpNat.height > vpNat.width * 1.1;   // 縦長 = A4縦
+
+    const vp = page.getViewport({ scale: renderScale });
+    const pageCv = document.createElement('canvas');
+    pageCv.width  = Math.round(vp.width);
+    pageCv.height = Math.round(vp.height);
+    await page.render({ canvasContext: pageCv.getContext('2d'), viewport: vp }).promise;
+
+    // 全ページ共通：見開き幅のキャンバスを作成
+    const out = document.createElement('canvas');
+    out.width  = spreadW;
+    out.height = spreadH;
+    const ctx  = out.getContext('2d');
+
+    if (isPort) {
+      // A4縦 → 背景を塗り、中央に配置
+      ctx.fillStyle = PORT_BG;
+      ctx.fillRect(0, 0, spreadW, spreadH);
+      const xOff = Math.round((spreadW - singleW) / 2);
+      ctx.drawImage(pageCv, xOff, 0, singleW, spreadH);
+    } else {
+      // A3横 → 全幅に描画
+      ctx.drawImage(pageCv, 0, 0, spreadW, spreadH);
+    }
+
+    pushSlot(out.toDataURL('image/jpeg', 0.95));
+  }
+
+  pbar.style.width = '100%';
+
+  totalImgs  = imgs.length;
+  totalViews = totalImgs;   // 1PDFページ = 1ビュー
+
+  return { imgs, spreadW, spreadH, cssFactor };
+}
+
+/* ═══════════════════════════════════════
+   PageFlip ビューワーを構築する
+═══════════════════════════════════════ */
+async function buildViewer({ imgs, spreadW, spreadH, cssFactor }) {
+  $('loading').style.display = 'none';
+  $('err-box').style.display = 'none';
+  $('viewer').style.display  = 'flex';
+
+  // ── StPageFlip 初期化 ──
+  // usePortrait: true = 1ページずつ表示（余白ページが発生しない）
+  // width/height = 見開き幅（A3横）のサイズ
+  pf = new St.PageFlip($('flipbook'), {
+    width:               spreadW,
+    height:              spreadH,
+    showCover:           true,
+    usePortrait:         true,   // 1ページ=1ビュー（ペアリングなし）
+    autoSize:            false,
+    mobileScrollSupport: false,
+    flippingTime:        700,
+    maxShadowOpacity:    0.45,
+    drawShadow:          true,
+  });
+
+  pf.loadFromImages(imgs);
+
+  // ── CSS transform で高解像度→表示サイズに縮小 ──
+  const flipDiv  = $('flipbook');
+  const bookWrap = $('book-wrap');
+
+  const displayW = Math.round(spreadW * cssFactor);
+  const displayH = Math.round(spreadH * cssFactor);
+
+  flipDiv.style.position        = 'absolute';
+  flipDiv.style.top             = '0';
+  flipDiv.style.left            = '0';
+  flipDiv.style.transformOrigin = 'top left';
+  flipDiv.style.transform       = `scale(${cssFactor})`;
+
+  bookWrap.style.position = 'relative';
+  bookWrap.style.width    = displayW + 'px';
+  bookWrap.style.height   = displayH + 'px';
+  bookWrap.style.overflow = 'hidden';
+
+  // ── バッジラベル（1ページ=1ビュー） ──
+  function badge(idx) {
+    if (idx === 0)              return '表紙';
+    if (idx === totalImgs - 1)  return '最終ページ';
+    return `${idx + 1} ページ`;
+  }
+
+  // ── UI 更新 ──
+  function update() {
+    const idx = pf.getCurrentPageIndex();
+    $('counter').textContent    = `${idx + 1} / ${totalImgs}`;
+    $('page-badge').textContent = badge(idx);
+    $('btn-first').disabled = idx <= 0;
+    $('btn-prev') .disabled = idx <= 0;
+    $('btn-next') .disabled = idx >= totalImgs - 1;
+    $('btn-last') .disabled = idx >= totalImgs - 1;
+    $('dots').querySelectorAll('.dot').forEach((d, i) => {
+      d.classList.toggle('active', i === idx);
+    });
+  }
+
+  pf.on('flip',        update);
+  pf.on('changeState', update);
+  update();
+
+  // ── ドットナビゲーション生成 ──
+  const dotsEl = $('dots');
+  for (let i = 0; i < totalImgs; i++) {
+    const dot = document.createElement('button');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.textContent = i + 1;
+    dot.title = badge(i);
+    dot.addEventListener('click', () => pf.flip(i));
+    dotsEl.appendChild(dot);
+  }
+
+  // ── ボタン ──
+  $('btn-first').addEventListener('click', () => pf.flip(0));
+  $('btn-prev') .addEventListener('click', () => {
+    const idx = pf.getCurrentPageIndex();
+    if (idx > 0) pf.flipPrev();
+  });
+  $('btn-next') .addEventListener('click', () => {
+    const idx = pf.getCurrentPageIndex();
+    if (idx < totalImgs - 1) pf.flipNext();
+  });
+  $('btn-last') .addEventListener('click', () => pf.flip(totalImgs - 1));
+
+  // ── キーボード ──
+  document.addEventListener('keydown', e => {
+    const idx = pf.getCurrentPageIndex();
+    if (e.key === 'ArrowRight' && idx < totalImgs - 1) pf.flipNext();
+    if (e.key === 'ArrowLeft'  && idx > 0)             pf.flipPrev();
+    if (e.key === 'Home') pf.flip(0);
+    if (e.key === 'End')  pf.flip(totalImgs - 1);
+  });
+}
+
+/* ═══════════════════════════════════════
+   実行パイプライン
+═══════════════════════════════════════ */
+async function run(src) {
+  try {
+    const result = await renderPDF(src);  // { imgs, spreadW, spreadH, cssFactor }
+    await buildViewer(result);
+  } catch (err) {
+    $('loading').style.display = 'none';
+    $('err-box').style.display = 'block';
+    $('err-msg').textContent   = 'エラー: ' + err.message;
+    console.error(err);
+  }
+}
+
+// 自動読み込み（PDF.js は file:// プロトコルに対応）
+run(PDF_NAME).catch(err => {
+  console.warn('Auto-load failed:', err.message);
+  $('loading').style.display = 'none';
+  $('err-box').style.display = 'block';
+});
+
+// 手動選択フォールバック
+$('file-in').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  $('err-box').style.display = 'none';
+  $('loading').style.display = 'block';
+  lMsg.textContent = 'ファイルを読み込んでいます...';
+  pbar.style.width = '0%';
+  run(await file.arrayBuffer());
+});
+</script>
+</body>
+</html>
