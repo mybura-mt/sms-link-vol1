@@ -18,37 +18,39 @@
 body {
   background: linear-gradient(150deg, var(--bg1) 0%, var(--bg2) 100%);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   font-family: -apple-system, 'Hiragino Kaku Gothic Pro', 'Noto Sans JP', sans-serif;
   color: var(--text);
-  padding: 16px 12px;
-  gap: 14px;
+  padding: 12px 8px;
+  gap: 10px;
   user-select: none;
+  overflow-x: hidden;
 }
 
 /* ── Header ── */
 .hdr { text-align: center; }
 .hdr-title {
-  font-size: clamp(15px, 2.2vw, 20px);
+  font-size: clamp(13px, 4vw, 20px);
   font-weight: 700;
-  letter-spacing: 5px;
+  letter-spacing: clamp(2px, 1vw, 5px);
   color: #cdd8f4;
 }
 .hdr-sub {
-  font-size: 11px;
-  letter-spacing: 2px;
+  font-size: clamp(9px, 2.5vw, 11px);
+  letter-spacing: 1px;
   color: var(--muted);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
 /* ── Loading ── */
-#loading { text-align: center; }
+#loading { text-align: center; padding: 0 16px; }
 .l-msg { font-size: 13px; color: var(--muted); }
 .progress-track {
-  width: 240px; height: 2px;
+  width: min(240px, 80vw); height: 2px;
   background: rgba(255,255,255,0.1);
   border-radius: 1px;
   margin: 14px auto;
@@ -63,7 +65,7 @@ body {
 }
 
 /* ── Error / Manual load ── */
-#err-box { display: none; text-align: center; max-width: 360px; }
+#err-box { display: none; text-align: center; max-width: 360px; padding: 0 16px; }
 .err-msg { font-size: 13px; color: #f38ba8; margin-bottom: 14px; }
 .file-label {
   display: inline-block;
@@ -79,54 +81,89 @@ body {
 #file-in { display: none; }
 
 /* ── Viewer ── */
-#viewer { display: none; flex-direction: column; align-items: center; gap: 14px; }
+#viewer { display: none; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
 
+/* book-wrap: position:relative は JS で設定 */
 #book-wrap {
-  filter: drop-shadow(0 20px 50px rgba(0,0,0,.75))
-          drop-shadow(0 4px 10px rgba(0,0,0,.5));
+  filter: drop-shadow(0 12px 30px rgba(0,0,0,.7))
+          drop-shadow(0 3px 8px rgba(0,0,0,.5));
+  flex-shrink: 0;
 }
 #flipbook canvas { display: block; }
+
+/* ── Top info row ── */
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
+}
 
 /* ── Controls ── */
 .controls {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
   justify-content: center;
+  width: 100%;
+  flex-wrap: nowrap;
 }
 .btn {
   display: inline-flex;
   align-items: center;
-  padding: 8px 18px;
-  background: rgba(255,255,255,.07);
-  color: rgba(255,255,255,.82);
-  border: 1px solid rgba(255,255,255,.13);
+  justify-content: center;
+  padding: 10px 16px;
+  min-height: 44px;          /* タッチターゲット */
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.85);
+  border: 1px solid rgba(255,255,255,.15);
   border-radius: 100px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: clamp(11px, 3vw, 13px);
   font-family: inherit;
-  letter-spacing: .5px;
   transition: background .18s, border-color .18s, opacity .18s;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
-.btn:hover:not(:disabled) {
-  background: rgba(255,255,255,.14);
-  border-color: rgba(255,255,255,.28);
+.btn:hover:not(:disabled),
+.btn:active:not(:disabled) {
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.3);
 }
 .btn:disabled { opacity: .22; cursor: default; }
+/* PC では表示、スマホでは非表示 */
+.btn-edge { display: inline-flex; }
+
 .counter {
-  font-size: 12px;
+  font-size: clamp(11px, 3vw, 13px);
   color: var(--muted);
-  min-width: 64px;
+  min-width: 52px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* ── Dot navigation ── */
-#dots { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+#dots-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 4px 0;
+}
+#dots-wrap::-webkit-scrollbar { display: none; }
+#dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: max-content;
+  padding: 0 8px;
+}
 .dot {
-  width: 28px; height: 28px;
+  width: 30px; height: 30px;
+  min-width: 30px;
   border: 1px solid rgba(255,255,255,.2);
   border-radius: 50%;
   background: rgba(255,255,255,.06);
@@ -136,15 +173,23 @@ body {
   transition: background .18s, border-color .18s, color .18s;
   font-family: inherit;
   display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
-.dot:hover { background: rgba(255,255,255,.14); color: rgba(255,255,255,.85); }
+.dot:hover,
+.dot:active { background: rgba(255,255,255,.14); color: rgba(255,255,255,.85); }
 .dot.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
 }
 
-.hint { font-size: 10px; color: rgba(255,255,255,.18); letter-spacing: .5px; text-align: center; }
+.hint {
+  font-size: 10px;
+  color: rgba(255,255,255,.18);
+  letter-spacing: .5px;
+  text-align: center;
+}
 
 /* ── Page type badge ── */
 #page-badge {
@@ -154,6 +199,17 @@ body {
   border: 1px solid rgba(255,255,255,.15);
   color: var(--muted);
   letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+/* ── モバイル調整 ── */
+@media (max-width: 600px) {
+  body { padding: 8px 4px; gap: 8px; }
+  .hdr-sub { display: none; }
+  .btn-edge { display: none; }   /* 最初・最後ボタンを非表示 */
+  .hint { display: none; }
+  .controls { gap: 6px; }
+  .btn { padding: 10px 14px; }
 }
 </style>
 </head>
@@ -182,9 +238,9 @@ body {
 
 <!-- Viewer -->
 <div id="viewer">
-  <div style="display:flex;align-items:center;gap:12px;">
+  <div class="info-row">
     <span id="page-badge">表紙</span>
-    <span class="counter" id="counter">1 / 6</span>
+    <span class="counter" id="counter">1 / 1</span>
   </div>
 
   <div id="book-wrap">
@@ -192,12 +248,13 @@ body {
   </div>
 
   <div class="controls">
-    <button class="btn" id="btn-first">|◀ 表紙</button>
+    <button class="btn btn-edge" id="btn-first">|◀ 表紙</button>
     <button class="btn" id="btn-prev">◀ 前へ</button>
-    <div id="dots"></div>
     <button class="btn" id="btn-next">次へ ▶</button>
-    <button class="btn" id="btn-last">最後 ▶|</button>
+    <button class="btn btn-edge" id="btn-last">最後 ▶|</button>
   </div>
+
+  <div id="dots-wrap"><div id="dots"></div></div>
 
   <p class="hint">← → キー または ページ端のドラッグでもめくれます</p>
 </div>
@@ -213,7 +270,7 @@ body {
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const PDF_NAME = 'shakanai-link-vol1.pdf';
+const PDF_NAME = '社内報（2026.6.7）.pdf';
 
 // ─────────────────────────────────────────────────────────────
 // ページレイアウト設定（1始まりのスロット番号で指定）
@@ -250,9 +307,17 @@ async function renderPDF(src) {
   const p1 = await pdf.getPage(1);
   const vp1nat = p1.getViewport({ scale: 1 });
 
-  // 表示サイズ（CSSピクセル）
-  const maxH = Math.min(window.innerHeight - 210, 680);
-  const displayScale = Math.min(maxH / vp1nat.height, 1.0);
+  // 表示サイズ（CSSピクセル）— 幅・高さ両方を制約に入れてスマホでも収まるように
+  const isMobile = window.innerWidth < 640;
+  const vPad   = isMobile ? 170 : 210;   // ヘッダー＋ナビ領域の高さ
+  const maxH   = Math.min(window.innerHeight - vPad, 680);
+  const maxW   = window.innerWidth - (isMobile ? 8 : 24);
+  // A3見開き幅 = A4縦幅 × 2 なので、幅制約は maxW / 2 で1ページ分に換算
+  const displayScale = Math.min(
+    maxH / vp1nat.height,
+    maxW / (vp1nat.width * 2),
+    1.0
+  );
 
   // 高解像度レンダリングスケール（devicePixelRatio × 品質係数）
   const dpr = window.devicePixelRatio || 1;
@@ -392,6 +457,15 @@ async function buildViewer({ imgs, spreadW, spreadH, cssFactor }) {
     $('dots').querySelectorAll('.dot').forEach((d, i) => {
       d.classList.toggle('active', i === idx);
     });
+    // アクティブなドットをスクロールして見えるようにする
+    const activeDot = $('dots').children[idx];
+    if (activeDot) {
+      const wrap = $('dots-wrap');
+      const dotLeft = activeDot.offsetLeft;
+      const dotW    = activeDot.offsetWidth;
+      const wrapW   = wrap.offsetWidth;
+      wrap.scrollTo({ left: dotLeft - wrapW / 2 + dotW / 2, behavior: 'smooth' });
+    }
   }
 
   pf.on('flip',        update);
