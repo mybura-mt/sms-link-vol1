@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>社内報 LINK Vol.1 JUNE | SMS GROUP</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -114,7 +114,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 10px 16px;
-  min-height: 44px;          /* タッチターゲット */
+  min-height: 44px;
   background: rgba(255,255,255,.08);
   color: rgba(255,255,255,.85);
   border: 1px solid rgba(255,255,255,.15);
@@ -132,8 +132,12 @@ body {
   border-color: rgba(255,255,255,.3);
 }
 .btn:disabled { opacity: .22; cursor: default; }
-/* PC では表示、スマホでは非表示 */
 .btn-edge { display: inline-flex; }
+.btn-zoom {
+  background: rgba(77,159,236,.2);
+  border-color: rgba(77,159,236,.4);
+}
+.btn-zoom:hover { background: rgba(77,159,236,.35) !important; }
 
 .counter {
   font-size: clamp(11px, 3vw, 13px);
@@ -202,11 +206,114 @@ body {
   white-space: nowrap;
 }
 
+/* ── ズームモーダル ── */
+#zoom-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.96);
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+#zoom-modal.open { display: flex; }
+
+#zoom-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+#zoom-img {
+  max-width: none;
+  max-height: none;
+  display: block;
+  transform-origin: center center;
+  will-change: transform;
+  touch-action: none;
+  pointer-events: none;
+  transition: none;
+}
+
+#zoom-toolbar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+
+.zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px; height: 44px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(4px);
+}
+.zoom-btn:active { background: rgba(255,255,255,.28); }
+
+#zoom-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: rgba(255,255,255,.35);
+  letter-spacing: .5px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#zoom-nav {
+  position: absolute;
+  bottom: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+}
+
+.zoom-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  min-height: 40px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 100px;
+  color: rgba(255,255,255,.8);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+.zoom-nav-btn:active { background: rgba(255,255,255,.22); }
+.zoom-nav-btn:disabled { opacity: .22; }
+
 /* ── モバイル調整 ── */
 @media (max-width: 600px) {
   body { padding: 8px 4px; gap: 8px; }
   .hdr-sub { display: none; }
-  .btn-edge { display: none; }   /* 最初・最後ボタンを非表示 */
+  .btn-edge { display: none; }
   .hint { display: none; }
   .controls { gap: 6px; }
   .btn { padding: 10px 14px; }
@@ -250,6 +357,7 @@ body {
   <div class="controls">
     <button class="btn btn-edge" id="btn-first">|◀ 表紙</button>
     <button class="btn" id="btn-prev">◀ 前へ</button>
+    <button class="btn btn-zoom" id="btn-zoom">&#x1F50D; 拡大</button>
     <button class="btn" id="btn-next">次へ ▶</button>
     <button class="btn btn-edge" id="btn-last">最後 ▶|</button>
   </div>
@@ -257,6 +365,24 @@ body {
   <div id="dots-wrap"><div id="dots"></div></div>
 
   <p class="hint">← → キー または ページ端のドラッグでもめくれます</p>
+</div>
+
+<!-- ズームモーダル -->
+<div id="zoom-modal">
+  <div id="zoom-stage">
+    <img id="zoom-img" src="" alt="">
+  </div>
+  <div id="zoom-toolbar">
+    <button class="zoom-btn" id="zoom-in"  title="拡大">+</button>
+    <button class="zoom-btn" id="zoom-out" title="縮小">−</button>
+    <button class="zoom-btn" id="zoom-close" title="閉じる">&#x2715;</button>
+  </div>
+  <div id="zoom-nav">
+    <button class="zoom-nav-btn" id="znav-prev">◀ 前へ</button>
+    <span style="display:inline-flex;align-items:center;font-size:12px;color:rgba(255,255,255,.5)" id="znav-counter"></span>
+    <button class="zoom-nav-btn" id="znav-next">次へ ▶</button>
+  </div>
+  <p id="zoom-hint">ピンチで拡大 &nbsp;／&nbsp; ダブルタップでリセット</p>
 </div>
 
 <!-- PDF.js -->
@@ -270,15 +396,11 @@ body {
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const PDF_NAME = '社内報（2026.6.7）.pdf';
+const PDF_NAME = '社内報（創刊号A4）.pdf';
 
-// ─────────────────────────────────────────────────────────────
-// ページレイアウト設定（1始まりのスロット番号で指定）
-//   PORTRAIT_SLOTS : A4縦として扱うスロット（中身はそのまま A4 サイズ）
-//   SKIP_SLOTS     : 白紙に差し替えて削除するスロット
-// ─────────────────────────────────────────────────────────────
-const PORTRAIT_SLOTS = new Set([11]);   // 11P → A4縦
-const SKIP_SLOTS     = new Set([12]);   // 12P → 削除（白紙で代替し見開きを維持）
+// 全ページ A4 縦のため PORTRAIT_SLOTS / SKIP_SLOTS は空
+const PORTRAIT_SLOTS = new Set([]);
+const SKIP_SLOTS     = new Set([]);
 
 const $ = id => document.getElementById(id);
 const pbar = $('pbar');
@@ -287,6 +409,7 @@ const lMsg = $('l-msg');
 let pf;
 let totalImgs;   // 全スロット数（StPageFlip に渡す画像数）
 let totalViews;  // ユーザーが見る「ページ（見開き・単ページ）」数
+let allImgs = []; // ズームモーダル用に全ページ画像を保持
 
 
 /* ═══════════════════════════════════════
@@ -409,6 +532,7 @@ async function renderPDF(src) {
 
   totalImgs  = imgs.length;
   totalViews = totalImgs;
+  allImgs    = imgs;
 
   return { imgs, spreadW, spreadH, cssFactor };
 }
@@ -515,13 +639,182 @@ async function buildViewer({ imgs, spreadW, spreadH, cssFactor }) {
 
   // ── キーボード ──
   document.addEventListener('keydown', e => {
+    if ($('zoom-modal').classList.contains('open')) return;
     const idx = pf.getCurrentPageIndex();
     if (e.key === 'ArrowRight' && idx < totalImgs - 1) pf.flipNext();
     if (e.key === 'ArrowLeft'  && idx > 0)             pf.flipPrev();
     if (e.key === 'Home') pf.flip(0);
     if (e.key === 'End')  pf.flip(totalImgs - 1);
   });
+
+  // ── ズームボタン ──
+  $('btn-zoom').addEventListener('click', () => {
+    openZoom(pf.getCurrentPageIndex());
+  });
 }
+
+/* ═══════════════════════════════════════
+   ズームモーダル
+═══════════════════════════════════════ */
+(function initZoom() {
+  const modal    = $('zoom-modal');
+  const stage    = $('zoom-stage');
+  const img      = $('zoom-img');
+  const btnClose = $('zoom-close');
+  const btnIn    = $('zoom-in');
+  const btnOut   = $('zoom-out');
+  const znavPrev = $('znav-prev');
+  const znavNext = $('znav-next');
+  const znavCtr  = $('znav-counter');
+
+  let zIdx   = 0;
+  let zScale = 1;
+  let zTx    = 0, zTy = 0;
+
+  // ピンチ用
+  let lastDist = 0;
+  let pinchMidX = 0, pinchMidY = 0;
+  // パン用
+  let dragging = false;
+  let dragSX = 0, dragSY = 0;
+  // ダブルタップ用
+  let lastTapTime = 0;
+
+  function getTouchDist(t) {
+    const dx = t[0].clientX - t[1].clientX;
+    const dy = t[0].clientY - t[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function applyTransform(animate) {
+    img.style.transition = animate ? 'transform .25s ease' : 'none';
+    img.style.transform  = `translate(${zTx}px,${zTy}px) scale(${zScale})`;
+  }
+
+  function clampPan() {
+    // 画像がステージよりも小さい場合は中央に戻す
+    const sw = stage.clientWidth;
+    const sh = stage.clientHeight;
+    const iw = img.naturalWidth  * zScale;
+    const ih = img.naturalHeight * zScale;
+    const maxTx = Math.max(0, (iw - sw) / 2);
+    const maxTy = Math.max(0, (ih - sh) / 2);
+    zTx = Math.max(-maxTx, Math.min(maxTx, zTx));
+    zTy = Math.max(-maxTy, Math.min(maxTy, zTy));
+  }
+
+  function resetTransform(animate) {
+    zScale = 1; zTx = 0; zTy = 0;
+    applyTransform(animate);
+  }
+
+  function updateZoomNav() {
+    znavCtr.textContent  = `${zIdx + 1} / ${totalImgs}`;
+    znavPrev.disabled    = zIdx <= 0;
+    znavNext.disabled    = zIdx >= totalImgs - 1;
+  }
+
+  window.openZoom = function(idx) {
+    zIdx = idx;
+    img.src = allImgs[zIdx];
+    resetTransform(false);
+    updateZoomNav();
+    modal.classList.add('open');
+  };
+
+  function closeZoom() {
+    modal.classList.remove('open');
+    img.src = '';
+  }
+
+  function goZoomPage(delta) {
+    const next = zIdx + delta;
+    if (next < 0 || next >= totalImgs) return;
+    zIdx = next;
+    img.src = allImgs[zIdx];
+    resetTransform(false);
+    updateZoomNav();
+    // メインのflipbookも同期
+    if (pf) pf.flip(zIdx);
+  }
+
+  btnClose.addEventListener('click', closeZoom);
+  btnIn.addEventListener('click',    () => { zScale = Math.min(5, zScale * 1.4); clampPan(); applyTransform(true); });
+  btnOut.addEventListener('click',   () => { zScale = Math.max(0.5, zScale / 1.4); clampPan(); applyTransform(true); });
+  znavPrev.addEventListener('click', () => goZoomPage(-1));
+  znavNext.addEventListener('click', () => goZoomPage(+1));
+
+  // キーボード対応（モーダル表示中）
+  document.addEventListener('keydown', e => {
+    if (!modal.classList.contains('open')) return;
+    if (e.key === 'Escape')      closeZoom();
+    if (e.key === 'ArrowRight')  goZoomPage(+1);
+    if (e.key === 'ArrowLeft')   goZoomPage(-1);
+  });
+
+  // ── タッチイベント（ピンチ拡大・パン・ダブルタップ）──
+  stage.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      lastDist  = getTouchDist(e.touches);
+      pinchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      pinchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      dragging  = false;
+    } else if (e.touches.length === 1) {
+      dragging = true;
+      dragSX   = e.touches[0].clientX - zTx;
+      dragSY   = e.touches[0].clientY - zTy;
+
+      // ダブルタップ判定
+      const now = Date.now();
+      if (now - lastTapTime < 280) {
+        if (zScale > 1.05) {
+          resetTransform(true);
+        } else {
+          zScale = 2.5;
+          applyTransform(true);
+        }
+        lastTapTime = 0;
+      } else {
+        lastTapTime = now;
+      }
+    }
+  }, { passive: false });
+
+  stage.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      const dist  = getTouchDist(e.touches);
+      const midX  = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY  = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+      zScale = Math.max(0.5, Math.min(5, zScale * (dist / lastDist)));
+      zTx   += midX - pinchMidX;
+      zTy   += midY - pinchMidY;
+
+      lastDist  = dist;
+      pinchMidX = midX;
+      pinchMidY = midY;
+
+      clampPan();
+      applyTransform(false);
+    } else if (e.touches.length === 1 && dragging && zScale > 1.05) {
+      zTx = e.touches[0].clientX - dragSX;
+      zTy = e.touches[0].clientY - dragSY;
+      clampPan();
+      applyTransform(false);
+    }
+  }, { passive: false });
+
+  stage.addEventListener('touchend', e => {
+    if (e.touches.length === 0) {
+      dragging = false;
+      if (zScale < 1) { zScale = 1; zTx = 0; zTy = 0; applyTransform(true); }
+    }
+  });
+
+  // モーダル外タップで閉じない（誤操作防止のため閉じるボタンのみ）
+})();
 
 /* ═══════════════════════════════════════
    実行パイプライン
@@ -538,12 +831,38 @@ async function run(src) {
   }
 }
 
-// 自動読み込み（PDF.js は file:// プロトコルに対応）
-run(PDF_NAME).catch(err => {
-  console.warn('Auto-load failed:', err.message);
-  $('loading').style.display = 'none';
-  $('err-box').style.display = 'block';
-});
+// 自動読み込み（XHR経由でSafari file://制限を回避）
+(async () => {
+  try {
+    // 日本語ファイル名を安全にエンコードして絶対URLを構築
+    const encodedName = PDF_NAME.replace(/[^\x00-\x7F()]/g, c => encodeURIComponent(c));
+    const absUrl = new URL(encodedName, location.href).href;
+
+    const buffer = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', absUrl, true);
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = function () {
+        if ((this.status === 0 || this.status === 200) && this.response && this.response.byteLength > 100) {
+          resolve(this.response);
+        } else {
+          reject(new Error('file load failed: status=' + this.status));
+        }
+      };
+      xhr.onerror = () => reject(new Error('XHR network error'));
+      xhr.send();
+    });
+
+    await run(buffer);
+  } catch (err) {
+    console.warn('Auto-load failed:', err.message);
+    $('loading').style.display = 'none';
+    $('err-box').style.display  = 'block';
+    $('err-msg').innerHTML =
+      'PDFを自動読み込みできませんでした。<br>' +
+      '下のボタンから <strong>社内報（創刊号A4）.pdf</strong> を選択してください。';
+  }
+})();
 
 // 手動選択フォールバック
 $('file-in').addEventListener('change', async e => {
